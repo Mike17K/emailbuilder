@@ -1,16 +1,11 @@
 import React, { useState } from "react";
+import type { Template, Settings, AssistantResponse } from "../types";
 
 interface ChatInterfaceProps {
-  template: {
-    id: string;
-    sections: { [key: string]: string };
-    exampleData?: string;
-    title: string; // Add title property
-  };
-  apiKey: string;
-  systemPrompt: string;
-  thoughtProcessPrompt: string;
-  onUpdate: (updatedTemplate: ChatInterfaceProps["template"]) => void;
+  template: Template;
+  settings: Settings;
+  onUpdateTemplate: (updatedTemplate: Template) => void;
+  onError: (message: string) => void;
 }
 
 interface Message {
@@ -20,66 +15,118 @@ interface Message {
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({
   template,
-  apiKey,
-  systemPrompt,
-  thoughtProcessPrompt,
-  onUpdate,
+  settings,
+  onUpdateTemplate,
+  onError,
 }) => {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSend = async () => {
-    if (!input.trim() || !apiKey) return;
+    if (!input.trim() || !settings.geminiApiKey) {
+      onError("Please provide a Gemini API Key in settings.");
+      return;
+    }
+
     setIsLoading(true);
     const userMessage: Message = { role: "user", content: input };
     setMessages((prevMessages) => [...prevMessages, userMessage]);
     setInput("");
 
     try {
+      interface GeminiMessagePart {
+        text: string;
+      }
+
+      interface GeminiMessage {
+        role: string; // "user" or "model"
+        parts: GeminiMessagePart[];
+      }
+
+      const requestMessages: GeminiMessage[] = [];
+
+      if (settings.systemPrompt) {
+        requestMessages.push({ role: "user", parts: [{ text: settings.systemPrompt }] });
+      }
+      if (settings.thoughtProcessPrompt) {
+        requestMessages.push({ role: "user", parts: [{ text: settings.thoughtProcessPrompt }] });
+      }
+      if (settings.exampleTemplate) {
+        requestMessages.push({ role: "user", parts: [{ text: `Here's an example template for context:\n${settings.exampleTemplate}` }] });
+      }
+
+      requestMessages.push({
+        role: "user",
+        parts: [{
+          text: `Current template sections:\n${JSON.stringify(template.sections, null, 2)}\n\nUser request: ${input}\n\nRespond with a JSON object containing 'updates' where keys are section IDs (e.g., 'title', 'main-content', 'code') and values are the new content. You can also include a 'chatResponse' for a conversational reply. Example: { "updates": { "title": "New Title", "main-content": "Updated content" }, "chatResponse": "I've updated the template for you." }`
+        }],
+      });
+
       const response = await fetch(
-        "https://api.openai.com/v1/chat/completions",
+        `https://generativelanguage.googleapis.com/v1beta/models/${settings.geminiModel}:generateContent?key=${settings.geminiApiKey}`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
-            model: "gpt-3.5-turbo",
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: thoughtProcessPrompt },
-              {
-                role: "user",
-                content: `Current template:\n${JSON.stringify(
-                  template.sections,
-                  null,
-                  2
-                )}\n\nUser request: ${input}`,
-              },
-            ],
+            contents: requestMessages,
           }),
         }
       );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || "Failed to fetch from Gemini API");
+      }
+
       const data = await response.json();
-      const assistantMessage: Message = data.choices[0].message;
+      const assistantContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!assistantContent) {
+        throw new Error("No content received from AI assistant.");
+      }
+
+      let assistantResponse: AssistantResponse = { updates: {} };
+      let rawAssistantMessage = assistantContent;
+
+      try {
+        // Attempt to parse JSON from the assistant's response
+        const jsonMatch = assistantContent.match(/```json\n([\s\S]*?)\n```/);
+        if (jsonMatch && jsonMatch[1]) {
+          assistantResponse = JSON.parse(jsonMatch[1]);
+          // If there's a chatResponse in the JSON, use it. Otherwise, use the full content.
+          rawAssistantMessage = assistantResponse.chatResponse || assistantContent;
+        } else {
+          // If no JSON block, assume the entire response is a chat message
+          assistantResponse.chatResponse = assistantContent;
+        }
+      } catch (jsonError) {
+        console.warn("Could not parse JSON from assistant response, treating as plain text:", jsonError);
+        assistantResponse.chatResponse = assistantContent;
+      }
+
+      const assistantMessage: Message = { role: "assistant", content: rawAssistantMessage };
       setMessages((prevMessages) => [...prevMessages, assistantMessage]);
 
-      const content = assistantMessage.content;
-      const sectionMatch = content.match(/```json\n([\s\S]*?)\n```/);
-      if (sectionMatch) {
-        const updatedSections = JSON.parse(sectionMatch[1]);
-        onUpdate({ ...template, sections: updatedSections });
+      if (assistantResponse.updates && Object.keys(assistantResponse.updates).length > 0) {
+        const updatedSections = { ...template.sections };
+        for (const sectionId in assistantResponse.updates) {
+          if (Object.prototype.hasOwnProperty.call(assistantResponse.updates, sectionId)) {
+            updatedSections[sectionId] = assistantResponse.updates[sectionId];
+          }
+        }
+        onUpdateTemplate({ ...template, sections: updatedSections });
       }
     } catch (error: unknown) {
       let errorMessage = "An unknown error occurred.";
       if (error instanceof Error) {
         errorMessage = error.message;
       }
+      onError("Chat Error: " + errorMessage);
       setMessages((prevMessages) => [
         ...prevMessages,
-        userMessage,
         { role: "assistant", content: "Error: " + errorMessage },
       ]);
     } finally {
@@ -121,7 +168,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         <button
           className="p-2 bg-blue-500 text-white rounded-r"
           onClick={handleSend}
-          disabled={isLoading || !apiKey}
+          disabled={isLoading || !settings.geminiApiKey}
         >
           Send
         </button>

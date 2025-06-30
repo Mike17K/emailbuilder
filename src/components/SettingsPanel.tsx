@@ -1,17 +1,12 @@
 import React from "react";
-
-interface Settings {
-  apiKey: string;
-  systemPrompt: string;
-  thoughtProcessPrompt: string;
-}
+import type { Settings } from "../types";
 
 interface SettingsPanelProps {
   settings: Settings;
   onUpdate: (updatedSettings: Settings) => void;
 }
 
-import { FaKey, FaRobot, FaBrain } from "react-icons/fa";
+import { FaKey, FaRobot, FaBrain, FaFileCode } from "react-icons/fa";
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({
   settings,
@@ -26,16 +21,47 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
           htmlFor="apiKey"
         >
           <FaKey className="inline-block mr-2 text-gray-600" />
-          OpenAI API Key
+          Gemini API Key
         </label>
         <input
           type="password"
-          id="apiKey"
+          id="geminiApiKey"
           className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500"
-          value={settings.apiKey}
-          onChange={(e) => onUpdate({ ...settings, apiKey: e.target.value })}
-          placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          value={settings.geminiApiKey}
+          onChange={(e) => onUpdate({ ...settings, geminiApiKey: e.target.value })}
+          placeholder="AIzaSyBxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
         />
+        <div className="mt-2 flex items-center">
+          <input
+            type="checkbox"
+            id="persistApiKey"
+            className="mr-2 leading-tight"
+            checked={settings.persistApiKey}
+            onChange={(e) => onUpdate({ ...settings, persistApiKey: e.target.checked })}
+          />
+          <label htmlFor="persistApiKey" className="text-sm text-gray-700">
+            Persist API Key (stores in local storage)
+          </label>
+        </div>
+      </div>
+      <div className="mb-6">
+        <label
+          className="block text-gray-700 text-sm font-bold mb-2"
+          htmlFor="geminiModel"
+        >
+          <FaRobot className="inline-block mr-2 text-gray-600" />
+          Gemini Model
+        </label>
+        <select
+          id="geminiModel"
+          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500"
+          value={settings.geminiModel}
+          onChange={(e) => onUpdate({ ...settings, geminiModel: e.target.value })}
+        >
+          <option value="gemini-pro">gemini-pro</option>
+          <option value="gemini-1.5-pro-latest">gemini-1.5-pro-latest</option>
+          {/* Add more Gemini models as needed */}
+        </select>
       </div>
       <div className="mb-6">
         <label
@@ -62,17 +88,36 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
           htmlFor="thoughtProcessPrompt"
         >
           <FaBrain className="inline-block mr-2 text-gray-600" />
-          Thought Process Prompt
+          Thought Process Prompt (Optional)
         </label>
         <textarea
           id="thoughtProcessPrompt"
           className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500"
-          value={settings.thoughtProcessPrompt}
+          value={settings.thoughtProcessPrompt || ""}
           onChange={(e) =>
             onUpdate({ ...settings, thoughtProcessPrompt: e.target.value })
           }
           rows={4}
           placeholder="Please think step-by-step..."
+        />
+      </div>
+      <div className="mb-6">
+        <label
+          className="block text-gray-700 text-sm font-bold mb-2"
+          htmlFor="exampleTemplate"
+        >
+          <FaFileCode className="inline-block mr-2 text-gray-600" />
+          Example Template for Assistant (Optional)
+        </label>
+        <textarea
+          id="exampleTemplate"
+          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500"
+          value={settings.exampleTemplate || ""}
+          onChange={(e) =>
+            onUpdate({ ...settings, exampleTemplate: e.target.value })
+          }
+          rows={6}
+          placeholder="Provide an example of a good email template for the AI to learn from..."
         />
       </div>
     </div>

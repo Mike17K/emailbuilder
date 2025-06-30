@@ -25,8 +25,16 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({ template }) => {
     }
     try {
       const data = JSON.parse(template.exampleData);
-      const rendered = renderTemplate(template.sections["html"], data);
-      setPreview(rendered);
+      const rendered = renderTemplate(template.sections["html"] || "", data);
+
+      // Extract content within the <body> tags
+      const bodyContentMatch = rendered.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+      if (bodyContentMatch && bodyContentMatch[1]) {
+        setPreview(bodyContentMatch[1]);
+      } else {
+        // Fallback to full rendered content if body tags are not found
+        setPreview(rendered);
+      }
       setError(null);
     } catch (error: unknown) {
       if (error instanceof Error) {

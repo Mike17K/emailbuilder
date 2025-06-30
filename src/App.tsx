@@ -7,84 +7,36 @@ import ExampleDataEditor from "./components/ExampleDataEditor";
 import { StorageService } from "./utils/storage";
 import { renderTemplate } from "./utils/templateRenderer";
 import { FaBars } from "react-icons/fa";
-import type { Template } from "./types";
+import type { Template, Settings } from "./types";
 
-const defaultTemplate: Template = {
-  id: Date.now().toString(),
-  title: "Default Template Title",
-  sections: {
-    title: "Default Title",
-    html: `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Email Template</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4; }
-        .container { width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }
-        .header { background-color: #007bff; color: #ffffff; padding: 10px 20px; text-align: center; border-radius: 8px 8px 0 0; }
-        .content { padding: 20px; line-height: 1.6; color: #333333; }
-        .footer { text-align: center; padding: 10px 20px; font-size: 12px; color: #777777; border-top: 1px solid #eeeeee; margin-top: 20px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>Welcome, {{customer.name}}!</h1>
-        </div>
-        <div class="content">
-            <p>Thank you for your recent purchase of <strong>{{order.product}}</strong>. Your order number is <strong>{{order.number}}</strong>.</p>
-            <p>We appreciate your business and hope you enjoy your new product.</p>
-            <p>If you have any questions, please don't hesitate to contact our support team.</p>
-        </div>
-        <div class="footer">
-            <p>&copy; {{year}} Your Company. All rights reserved.</p>
-        </div>
-    </div>
-</body>
-</html>`,
-    "main-content": "This section is now for general text content.",
-    code: "// Default code snippet",
-  },
-  exampleData: JSON.stringify(
-    {
-      customer: { name: "John Doe" },
-      order: { number: 12345, product: "Widget" },
-      year: new Date().getFullYear(),
-    },
-    null,
-    2
-  ),
-};
 
 const App: React.FC = () => {
-  const [templates, setTemplates] = useState<Template[]>(StorageService.load());
+  const [templates, setTemplates] = useState<Template[]>(StorageService.loadTemplates());
   const [currentTemplateId, setCurrentTemplateId] = useState(templates[0].id);
-  const [settings, setSettings] = useState({
-    apiKey: "",
-    systemPrompt:
-      "You are a helpful assistant that modifies email templates based on user instructions.",
-    thoughtProcessPrompt:
-      "Please think step-by-step and provide the updated template sections as a JSON object wrapped in ```json``` markers.",
-  });
+  const [settings, setSettings] = useState<Settings>(StorageService.loadSettings());
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    StorageService.save(templates);
+    StorageService.saveTemplates(templates);
   }, [templates]);
+
+  useEffect(() => {
+    StorageService.saveSettings(settings);
+  }, [settings]);
 
   const currentTemplate =
     templates.find((t) => t.id === currentTemplateId) || templates[0];
 
   const handleNewTemplate = () => {
-    const newTemplate = { ...defaultTemplate, id: Date.now().toString() };
-    setTemplates([...templates, newTemplate]);
+    // Load the default template from storage service to ensure consistency
+    const newTemplate = StorageService.loadTemplates()[0]; 
+    setTemplates([...templates, { ...newTemplate, id: Date.now().toString(), title: "New Email Template" }]);
     setCurrentTemplateId(newTemplate.id);
   };
 
   const handleUpdateTemplate = (updatedTemplate: Template) => {
-    setTemplates(
-      templates.map((t) => (t.id === currentTemplateId ? updatedTemplate : t))
+    setTemplates((prevTemplates) =>
+      prevTemplates.map((t) => (t.id === updatedTemplate.id ? updatedTemplate : t))
     );
   };
 
@@ -97,7 +49,7 @@ const App: React.FC = () => {
 
   const handleDownload = () => {
     const renderedHtml = renderTemplate(
-      currentTemplate.sections["main-content"],
+      currentTemplate.sections["html"] || "", // Use 'html' for the main content
       JSON.parse(currentTemplate.exampleData || "{}")
     );
     const blob = new Blob([renderedHtml], { type: "text/html" });
@@ -111,10 +63,30 @@ const App: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleError = (message: string) => {
+    setErrorMessage(message);
+  };
+
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   return (
     <div className="flex h-screen bg-gray-50">
+      {/* Error Modal */}
+      {errorMessage && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full text-center">
+            <h3 className="text-xl font-bold text-red-600 mb-4">Error!</h3>
+            <p className="text-gray-700 mb-6">{errorMessage}</p>
+            <button
+              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 focus:outline-none"
+              onClick={() => setErrorMessage(null)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Sidebar for Settings */}
       <div
         className={`fixed inset-y-0 left-0 w-64 bg-white shadow-lg transform ${
@@ -162,7 +134,7 @@ const App: React.FC = () => {
             >
               {templates.map((t) => (
                 <option key={t.id} value={t.id}>
-                  Template {t.id}
+                  Template {t.title || t.id}
                 </option>
               ))}
             </select>
@@ -193,10 +165,15 @@ const App: React.FC = () => {
             {/* Smaller height for chat */}
             <ChatInterface
               template={currentTemplate}
-              apiKey={settings.apiKey}
-              systemPrompt={settings.systemPrompt}
-              thoughtProcessPrompt={settings.thoughtProcessPrompt}
-              onUpdate={handleUpdateTemplate}
+              settings={settings}
+              onUpdateTemplate={(updatedTemplate) => {
+                // If the AI updates the 'title' section, update the template's top-level title
+                if (updatedTemplate.sections.title) {
+                  updatedTemplate.title = updatedTemplate.sections.title;
+                }
+                handleUpdateTemplate(updatedTemplate);
+              }}
+              onError={handleError}
             />
           </div>
 
