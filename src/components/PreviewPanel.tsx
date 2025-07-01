@@ -27,14 +27,19 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({ template }) => {
       const data = JSON.parse(template.exampleData);
       const rendered = renderTemplate(template.sections["html"] || "", data);
 
+      let contentToParse = rendered;
+
+      // Extract style tags from head
+      const styleTags = rendered.match(/<style[^>]*>[\s\S]*?<\/style>/gi) || [];
+
       // Extract content within the <body> tags
       const bodyContentMatch = rendered.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
       if (bodyContentMatch && bodyContentMatch[1]) {
-        setPreview(bodyContentMatch[1]);
-      } else {
-        // Fallback to full rendered content if body tags are not found
-        setPreview(rendered);
+        contentToParse = bodyContentMatch[1];
       }
+
+      // Prepend style tags to the body content
+      setPreview(styleTags.join("") + contentToParse);
       setError(null);
     } catch (error: unknown) {
       if (error instanceof Error) {

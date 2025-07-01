@@ -9,11 +9,14 @@ import { renderTemplate } from "./utils/templateRenderer";
 import { FaBars } from "react-icons/fa";
 import type { Template, Settings } from "./types";
 
-
 const App: React.FC = () => {
-  const [templates, setTemplates] = useState<Template[]>(StorageService.loadTemplates());
+  const [templates, setTemplates] = useState<Template[]>(
+    StorageService.loadTemplates()
+  );
   const [currentTemplateId, setCurrentTemplateId] = useState(templates[0].id);
-  const [settings, setSettings] = useState<Settings>(StorageService.loadSettings());
+  const [settings, setSettings] = useState<Settings>(
+    StorageService.loadSettings()
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -28,15 +31,82 @@ const App: React.FC = () => {
     templates.find((t) => t.id === currentTemplateId) || templates[0];
 
   const handleNewTemplate = () => {
-    // Load the default template from storage service to ensure consistency
-    const newTemplate = StorageService.loadTemplates()[0]; 
-    setTemplates([...templates, { ...newTemplate, id: Date.now().toString(), title: "New Email Template" }]);
+    const defaultHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <title>Welcome Email</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 0;
+      -webkit-text-size-adjust: none;
+      -ms-text-size-adjust: none;
+    }
+    .container {
+      max-width: 600px;
+      margin: 20px auto;
+      background-color: #ffffff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      color: #333333;
+    }
+    p {
+      color: #666666;
+      line-height: 1.6;
+    }
+    .button {
+      display: inline-block;
+      background-color: #007bff;
+      color: #ffffff;
+      padding: 10px 20px;
+      border-radius: 5px;
+      text-decoration: none;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Welcome, {{name}}!</h1>
+    <p>Thank you for signing up for our service. We are excited to have you on board.</p>
+    <p>Here are some resources to get you started:</p>
+    <ul>
+      <li><a href="#">Getting Started Guide</a></li>
+      <li><a href="#">Our Blog</a></li>
+      <li><a href="#">Contact Support</a></li>
+    </ul>
+    <p>If you have any questions, feel free to reach out to us.</p>
+    <a href="#" class="button">Visit Our Website</a>
+    <p>Best regards,<br>The Team</p>
+  </div>
+</body>
+</html>`;
+
+    const defaultExampleData = JSON.stringify({ name: "John Doe" }, null, 2);
+
+    const newTemplate: Template = {
+      id: Date.now().toString(),
+      title: "Welcome Email Template",
+      sections: {
+        html: defaultHtml,
+        code: "", // Initialize code section as empty
+      },
+      exampleData: defaultExampleData,
+    };
+    setTemplates([...templates, newTemplate]);
     setCurrentTemplateId(newTemplate.id);
   };
 
   const handleUpdateTemplate = (updatedTemplate: Template) => {
     setTemplates((prevTemplates) =>
-      prevTemplates.map((t) => (t.id === updatedTemplate.id ? updatedTemplate : t))
+      prevTemplates.map((t) =>
+        t.id === updatedTemplate.id ? updatedTemplate : t
+      )
     );
   };
 
