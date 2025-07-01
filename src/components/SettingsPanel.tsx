@@ -58,9 +58,8 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
           value={settings.geminiModel}
           onChange={(e) => onUpdate({ ...settings, geminiModel: e.target.value })}
         >
-          <option value="gemini-pro">gemini-pro</option>
           <option value="gemini-1.5-pro-latest">gemini-1.5-pro-latest</option>
-          {/* Add more Gemini models as needed */}
+          <option value="gemini-1.5-flash-latest">gemini-1.5-flash-latest</option>
         </select>
       </div>
       <div className="mb-6">
@@ -79,7 +78,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
             onUpdate({ ...settings, systemPrompt: e.target.value })
           }
           rows={4}
-          placeholder="You are a helpful assistant..."
+          placeholder="You are an AI assistant that helps users create and modify email templates."
         />
       </div>
       <div className="mb-6">

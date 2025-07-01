@@ -103,6 +103,7 @@ const App: React.FC = () => {
   };
 
   const handleUpdateTemplate = (updatedTemplate: Template) => {
+    // Removed automatic HTML formatting on update as per user request
     setTemplates((prevTemplates) =>
       prevTemplates.map((t) =>
         t.id === updatedTemplate.id ? updatedTemplate : t
@@ -138,6 +139,24 @@ const App: React.FC = () => {
   };
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false); // New state for title editing
+
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    handleUpdateTemplate({
+      ...currentTemplate,
+      title: e.target.value,
+    });
+  };
+
+  const handleTitleBlur = () => {
+    setIsEditingTitle(false);
+  };
+
+  const handleTitleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      setIsEditingTitle(false);
+    }
+  };
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -179,24 +198,13 @@ const App: React.FC = () => {
           >
             <FaBars className="h-6 w-6" />
           </button>
-          <input
-            type="text"
-            className="text-xl font-bold text-gray-800 bg-transparent border-none focus:outline-none w-full"
-            value={currentTemplate.title}
-            onChange={(e) =>
-              handleUpdateTemplate({
-                ...currentTemplate,
-                title: e.target.value,
-              })
-            }
-            placeholder="Template Title"
-          />
+          <h1 className="text-xl font-bold text-gray-800">Email Builder</h1> {/* Replaced input with static title */}
         </header>
 
         {/* Content Area */}
         <main className="flex-1 overflow-y-auto p-4 flex flex-col">
-          {/* Template Management Buttons */}
-          <div className="mb-4 flex space-x-2">
+          {/* Template Management Buttons and Title Edit */}
+          <div className="mb-4 flex items-center space-x-2">
             <select
               className="p-2 border rounded"
               value={currentTemplateId}
@@ -204,10 +212,28 @@ const App: React.FC = () => {
             >
               {templates.map((t) => (
                 <option key={t.id} value={t.id}>
-                  Template {t.title || t.id}
+                  {t.title || `Template ${t.id}`}
                 </option>
               ))}
             </select>
+            {isEditingTitle ? (
+              <input
+                type="text"
+                className="p-2 border rounded flex-1"
+                value={currentTemplate.title}
+                onChange={handleTitleChange}
+                onBlur={handleTitleBlur}
+                onKeyPress={handleTitleKeyPress}
+                autoFocus
+              />
+            ) : (
+              <button
+                className="p-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                onClick={() => setIsEditingTitle(true)}
+              >
+                Edit Title
+              </button>
+            )}
             <button
               className="p-2 bg-green-500 text-white rounded"
               onClick={handleNewTemplate}

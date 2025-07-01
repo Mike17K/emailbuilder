@@ -17,6 +17,8 @@ export interface Settings {
 export interface AssistantResponse {
   updates: {
     [sectionId: string]: string;
+  } & {
+    exampleData?: string; // Allow AI to update exampleData specifically
   };
   // The assistant can also provide a chat response
   chatResponse?: string;
